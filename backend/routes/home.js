@@ -50,7 +50,7 @@ router.get('/recent', authMiddleware, async (req, res) => {
     res.json({ results: cards });
   } catch (err) {
     console.error('[메인] 최근 출시 조회 실패:', err.message);
-    res.status(502).json({ error: 'Steam에서 최근 출시작을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.' });
+    res.status(502).json({ error: err.code === 'STEAM_BLOCKED' ? 'Steam이 요청을 일시적으로 제한하고 있어요. 몇 분 뒤에 다시 시도해 주세요.' : 'Steam에서 최근 출시작을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.' });
   }
 });
 
@@ -139,7 +139,7 @@ router.get('/recommend', authMiddleware, async (req, res) => {
     });
   } catch (err) {
     console.error('[메인] 추천 조회 실패:', err.message);
-    res.status(502).json({ error: '추천 게임을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.' });
+    res.status(502).json({ error: err.code === 'STEAM_BLOCKED' ? 'Steam이 요청을 일시적으로 제한하고 있어요. 몇 분 뒤에 다시 시도해 주세요.' : '추천 게임을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.' });
   }
 });
 

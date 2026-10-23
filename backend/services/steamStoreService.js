@@ -3,7 +3,7 @@
 //  - 게임 상점 페이지에서 사용자 태그 목록 읽기 (취향 분석용)
 // Steam 쪽 화면 구조가 바뀌면 파싱이 실패할 수 있어서, 실패하면 예외 대신 빈 결과로 처리하는 쪽으로 쓰입니다.
 
-const { STEAM_FETCH_HEADERS } = require('./steamService');
+const { steamFetch } = require('./steamHttp');
 
 const MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
 
@@ -56,9 +56,7 @@ async function searchStore({ tagIds = [], sortBy = '_ASC', count = 50, gamesOnly
   if (tagIds.length) p.set('tags', tagIds.join(','));
   if (gamesOnly) p.set('category1', '998'); // 998 = 게임 (DLC, 사운드트랙 등 제외)
 
-  const res = await fetch(`https://store.steampowered.com/search/results/?${p.toString()}`, {
-    headers: STEAM_FETCH_HEADERS,
-  });
+  const res = await steamFetch(`https://store.steampowered.com/search/results/?${p.toString()}`);
   if (!res.ok) throw new Error(`Steam 검색 요청 실패: ${res.status}`);
   const data = await res.json();
   const html = data.results_html || '';
@@ -81,7 +79,7 @@ async function searchStore({ tagIds = [], sortBy = '_ASC', count = 50, gamesOnly
 
 // 게임 상점 페이지에서 사용자 태그 이름(투표 많은 순)을 읽는다. 읽지 못하면 예외.
 async function fetchAppTags(appid, limit = 10) {
-  const res = await fetch(`https://store.steampowered.com/app/${appid}/?l=english`, { headers: STEAM_FETCH_HEADERS });
+  const res = await steamFetch(`https://store.steampowered.com/app/${appid}/?l=english`);
   if (!res.ok) throw new Error(`상점 페이지 요청 실패: ${res.status}`);
   const html = await res.text();
   const m = html.match(/InitAppTagModal\(\s*\d+\s*,\s*(\[[\s\S]*?\])\s*,/);

@@ -5,7 +5,7 @@
 // 가격은 한국 스토어(cc=kr) 기준이며, 화면에 보여줄 문자열은 Steam이 만들어 준 값을 그대로 쓴다. (예: "₩ 29,000")
 const pool = require('../db');
 const { ready } = require('./ensureTables');
-const { STEAM_FETCH_HEADERS } = require('./steamService');
+const { steamFetch } = require('./steamHttp');
 
 const PRICE_CACHE_HOURS = 6;
 const BATCH = 40; // 한 번에 물어볼 appid 수
@@ -17,7 +17,7 @@ async function fetchPricesFromSteam(appids) {
   for (let i = 0; i < appids.length; i += BATCH) {
     const chunk = appids.slice(i, i + BATCH);
     const url = `https://store.steampowered.com/api/appdetails?appids=${chunk.join(',')}&filters=price_overview&cc=kr&l=korean`;
-    const res = await fetch(url, { headers: STEAM_FETCH_HEADERS });
+    const res = await steamFetch(url);
     if (!res.ok) throw new Error(`가격 조회 실패: ${res.status}`);
     const data = await res.json();
     for (const appid of chunk) {

@@ -20,6 +20,8 @@ const { markFriendLikes } = require('../services/friendService');
 
 const router = express.Router();
 
+const STEAM_BUSY_MESSAGE = 'Steam이 요청을 일시적으로 제한하고 있어요. 몇 분 뒤에 다시 시도해 주세요. (이미 검색한 적 있는 게임은 그대로 볼 수 있어요)';
+
 const CACHE_HOURS = 24; // 캐시 유효 시간
 const REVIEWS_PER_GAME = 3; // 게임당 보여줄 유익한 리뷰 개수
 const KOREAN_MIN_CACHED = 5; // '한글 지원만' 검색일 때 캐시에 이만큼 이상 있어야 캐시를 쓰고, 아니면 새로 조회
@@ -159,6 +161,7 @@ router.get('/search', authMiddleware, async (req, res) => {
     const { totalCount, games: allCandidates } = await fetchGamesByOfficialTagSearch(tagIds, 100, startAt);
 
     const results = [];
+    let steamBlocked = false; // Steam이 요청을 일시 제한한 경우
     let examined = 0; // 이번에 살펴본 후보 수 (다음 페이지가 이어질 위치 계산용)
     let hiddenCount = 0;
     // 후보 중 일부가 실패해도(연령 확인 필요, 일시적 오류 등) 목표 개수(RESULT_COUNT)를
@@ -246,7 +249,15 @@ router.get('/search', authMiddleware, async (req, res) => {
         });
       } catch (innerErr) {
         console.error(`appid ${game.appid}(${game.name}) 처리 실패:`, innerErr.message);
+        if (innerErr.code === 'STEAM_BLOCKED') {
+          steamBlocked = true;
+          break; // 계속 물어봐도 막힐 뿐이라 여기서 멈춘다
+        }
       }
+    }
+
+    if (steamBlocked && results.length === 0) {
+      return res.status(503).json({ error: STEAM_BUSY_MESSAGE });
     }
 
     // 다음 위치: Steam에 아직 안 본 결과가 남아 있을 때만. 살펴본 게 없으면(끝에 도달) 더 이상 없음
@@ -266,6 +277,7 @@ router.get('/search', authMiddleware, async (req, res) => {
     res.json({ ...meta, source: 'live', total_matching_on_steam: totalCount, hidden_count: hiddenCount, next_cursor: nextCursor, results });
   } catch (err) {
     console.error(err);
+    if (err.code === 'STEAM_BLOCKED') return res.status(503).json({ error: STEAM_BUSY_MESSAGE });
     res.status(500).json({ error: '게임 검색 중 오류가 발생했습니다.' });
   }
 });

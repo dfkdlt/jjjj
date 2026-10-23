@@ -20,11 +20,20 @@ const allowedOrigins = [
   'http://127.0.0.1:5500',
 ].filter(Boolean);
 
+// Netlify는 미리보기 주소(https://xxxx--내사이트.netlify.app)로도 같은 사이트를 보여 준다.
+// FRONTEND_ORIGIN이 Netlify 주소면 그 사이트의 미리보기 주소도 허용한다.
+let previewOrigin = null;
+try {
+  const host = new URL(process.env.FRONTEND_ORIGIN || '').hostname;
+  const m = host.match(/^([a-z0-9-]+)\.netlify\.app$/);
+  if (m) previewOrigin = new RegExp(`^https://[a-z0-9-]+--${m[1]}\\.netlify\\.app$`);
+} catch (e) {}
+
 app.use(
   cors({
     origin: (origin, callback) => {
       // origin이 없는 요청(Postman, 서버 간 호출 등)은 허용
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin) || (previewOrigin && previewOrigin.test(origin))) {
         callback(null, true);
       } else {
         callback(new Error('CORS 정책에 의해 차단되었습니다: ' + origin));

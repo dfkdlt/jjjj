@@ -4,11 +4,8 @@
 
 const STEAM_REVIEWS_URL = 'https://store.steampowered.com/appreviews';
 
-// 성인 인증 페이지로 리다이렉트되는 것을 방지하기 위한 공통 헤더
-const STEAM_FETCH_HEADERS = {
-  Cookie: 'birthtime=0; lastagecheckage=1-January-1970; wants_mature_content=1',
-  'User-Agent': 'Mozilla/5.0',
-};
+// 모든 Steam 요청은 steamHttp를 거친다 (요청 수 제한, 차단(403/429) 시 잠시 쉬기)
+const { steamFetch, STEAM_FETCH_HEADERS } = require('./steamHttp');
 
 // Steam 공식 태그 ID로 검색 (사용자가 상점에서 태그 필터로 검색했을 때와 동일한 결과)
 // ignore_preferences=1 : Steam의 기본 "콘텐츠 선호도" 필터(폭력/성인 등 숨김)를 무시해서
@@ -20,7 +17,7 @@ async function fetchGamesByOfficialTagSearch(tagIds, poolSize = 100, start = 0) 
   const tagsParam = tagIds.join(',');
   const url = `https://store.steampowered.com/search/results/?query&start=${start}&count=${poolSize}&infinite=1&ignore_preferences=1&tags=${tagsParam}`;
 
-  const res = await fetch(url, { headers: STEAM_FETCH_HEADERS });
+  const res = await steamFetch(url);
   if (!res.ok) throw new Error(`Steam 검색 요청 실패: ${res.status}`);
   const data = await res.json();
 
@@ -47,7 +44,7 @@ async function fetchGamesByOfficialTagSearch(tagIds, poolSize = 100, start = 0) 
 // 특정 게임의 Steam 리뷰 요약(추천/비추천 수) 가져오기
 async function fetchReviewSummary(appid) {
   const url = `${STEAM_REVIEWS_URL}/${appid}?json=1&language=all&purchase_type=all&num_per_page=0`;
-  const res = await fetch(url, { headers: STEAM_FETCH_HEADERS });
+  const res = await steamFetch(url);
   if (!res.ok) throw new Error(`Steam 리뷰 API 요청 실패: ${res.status}`);
   const data = await res.json();
 
@@ -68,7 +65,7 @@ function calculateScore(positive, negative) {
 // 게임 상세정보(한글 지원 여부, 썸네일) 가져오기
 async function fetchGameDetails(appid) {
   const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&l=korean`;
-  const res = await fetch(url, { headers: STEAM_FETCH_HEADERS });
+  const res = await steamFetch(url);
   if (!res.ok) throw new Error(`appdetails 요청 실패: ${res.status}`);
   const data = await res.json();
 
@@ -92,7 +89,7 @@ async function fetchGameDetails(appid) {
 // filter=all은 Steam이 자체적으로 유용성(투표 수 등) 기준으로 정렬한 결과를 반환함
 async function fetchTopHelpfulReviews(appid, count = 3) {
   const url = `${STEAM_REVIEWS_URL}/${appid}?json=1&filter=all&language=all&purchase_type=all&num_per_page=20`;
-  const res = await fetch(url, { headers: STEAM_FETCH_HEADERS });
+  const res = await steamFetch(url);
   if (!res.ok) throw new Error(`리뷰 조회 실패: ${res.status}`);
   const data = await res.json();
 

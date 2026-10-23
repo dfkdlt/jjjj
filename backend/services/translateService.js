@@ -5,6 +5,10 @@
 
 const TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single';
 
+// 429(요청 과다)를 받으면 한동안 번역을 건너뛴다. 실패할 걸 알면서 계속 보내면 검색만 느려진다.
+const PAUSE_MS = 10 * 60 * 1000;
+let pausedUntil = 0;
+
 // Steam 리뷰의 language 코드가 이미 한국어인지 체크
 function isAlreadyKorean(languageCode) {
   return languageCode === 'koreana';
@@ -13,6 +17,7 @@ function isAlreadyKorean(languageCode) {
 // 주어진 텍스트를 한국어로 번역. 실패하거나 빈 텍스트면 null 반환.
 async function translateToKorean(text) {
   if (!text || !text.trim()) return null;
+  if (Date.now() < pausedUntil) return null;
 
   try {
     const params = new URLSearchParams({
@@ -24,6 +29,11 @@ async function translateToKorean(text) {
     });
 
     const res = await fetch(`${TRANSLATE_URL}?${params.toString()}`);
+    if (res.status === 429 || res.status === 403) {
+      pausedUntil = Date.now() + PAUSE_MS;
+      console.error(`번역 요청 제한(${res.status}): ${PAUSE_MS / 60000}분 동안 번역을 건너뜁니다.`);
+      return null;
+    }
     if (!res.ok) throw new Error(`번역 요청 실패: ${res.status}`);
 
     const data = await res.json();

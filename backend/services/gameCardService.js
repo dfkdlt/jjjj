@@ -6,14 +6,17 @@ const { fetchReviewSummary, calculateScore, fetchGameDetails } = require('./stea
 
 const CACHE_HOURS = 24;
 const CONCURRENCY = 4;
+const MAX_LIVE_FETCH = 20; // 한 번의 요청에서 Steam에 새로 물어볼 최대 게임 수 (저장된 값이 없는 게임만)
 
+// 저장된 게임 정보. fresh=false는 24시간이 지난 값(Steam이 막혔을 때 대신 쓴다)
 async function loadCached(appids) {
   if (appids.length === 0) return {};
   try {
     const [rows] = await pool.query(
-      `SELECT appid, name, total_positive, total_negative, supports_korean, header_image
-       FROM games WHERE appid IN (?) AND last_updated >= (NOW() - INTERVAL ? HOUR)`,
-      [appids, CACHE_HOURS]
+      `SELECT appid, name, total_positive, total_negative, supports_korean, header_image,
+              (last_updated >= (NOW() - INTERVAL ? HOUR)) AS fresh
+       FROM games WHERE appid IN (?)`,
+      [CACHE_HOURS, appids]
     );
     return Object.fromEntries(rows.map((r) => [r.appid, r]));
   } catch (err) {
@@ -58,16 +61,23 @@ function toCard(base, c) {
 async function getCards(candidates, limit, { minReviews = 0 } = {}) {
   const cached = await loadCached(candidates.map((c) => c.appid));
   const out = [];
-  for (let i = 0; i < candidates.length && out.length < limit; i += CONCURRENCY) {
+  let liveLeft = MAX_LIVE_FETCH;
+  let blocked = false;
+  for (let i = 0; i < candidates.length && out.length < limit && !blocked; i += CONCURRENCY) {
     const chunk = candidates.slice(i, i + CONCURRENCY);
     const cards = await Promise.all(
       chunk.map(async (c) => {
+        const old = cached[c.appid];
+        if (old && old.fresh) return toCard(old, c);
+        // 저장된 값이 없거나 오래됐으면 Steam에 묻되, 한 번에 너무 많이 묻지 않는다
+        if (blocked || liveLeft <= 0) return old ? toCard(old, c) : null;
+        liveLeft--;
         try {
-          const base = cached[c.appid] || (await fetchAndStore(c));
-          return toCard(base, c);
+          return toCard(await fetchAndStore(c), c);
         } catch (err) {
-          console.error(`[메인] ${c.appid}(${c.name}) 정보 조회 실패:`, err.message);
-          return null;
+          if (err.code === 'STEAM_BLOCKED') blocked = true;
+          else console.error(`[메인] ${c.appid}(${c.name}) 정보 조회 실패:`, err.message);
+          return old ? toCard(old, c) : null; // 못 읽으면 오래된 값이라도 보여준다
         }
       })
     );

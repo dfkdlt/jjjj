@@ -23,6 +23,8 @@ let active = 0;
 let lastStart = 0;
 const queue = [];
 
+const JSON_URL = /\/(appreviews|api\/appdetails|search\/results)/;
+
 class SteamBlockedError extends Error {
   constructor(status) {
     super(`Steam이 요청을 일시 제한했습니다(${status || '차단 중'}). 잠시 쉬었다가 다시 시도합니다.`);
@@ -69,6 +71,19 @@ async function once(url, options) {
     blockedUntil = Date.now() + BLOCK_MS;
     throw new SteamBlockedError(res.status);
   }
+  // JSON을 돌려줘야 하는 주소가 HTML(상점 첫 화면으로 이동 등)을 주면 그 주소만 막혀 있는 것이다.
+  //  - appreviews: 이 주소만 못 쓰는 상태. 전체를 멈추지 않고 호출한 쪽이 다른 방법을 쓰게 알려준다.
+  //  - 그 밖의 JSON 주소: Steam이 조용히 제한 중인 것으로 보고 전체를 잠시 쉰다.
+  if (JSON_URL.test(url) && (res.redirected || /text\/html/i.test((res.headers && res.headers.get('content-type')) || ''))) {
+    if (/\/appreviews/.test(url)) {
+      const e = new Error('Steam 리뷰 API가 JSON 대신 HTML을 돌려줍니다.');
+      e.code = 'STEAM_HTML';
+      throw e;
+    }
+    if (!isBlocked()) console.error(`[Steam] JSON 대신 HTML 응답: ${Math.round(BLOCK_MS / 60000)}분 동안 Steam 요청을 쉽니다. (${url.slice(0, 80)})`);
+    blockedUntil = Date.now() + BLOCK_MS;
+    throw new SteamBlockedError(res.status);
+  }
   return res;
 }
 
@@ -83,7 +98,7 @@ function steamFetch(url, options = {}) {
       }
       return res;
     } catch (err) {
-      if (err.code === 'STEAM_BLOCKED') throw err;
+      if (err.code === 'STEAM_BLOCKED' || err.code === 'STEAM_HTML') throw err;
       await new Promise((r) => setTimeout(r, 400));
       return await once(url, options); // 네트워크 오류/시간 초과는 한 번 더
     }

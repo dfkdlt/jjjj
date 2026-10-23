@@ -2,7 +2,36 @@
 // (예전엔 SteamSpy를 썼지만, SteamSpy 태그 데이터가 부정확/최신성 문제가 있어
 //  Steam이 실제로 상점 페이지에서 쓰는 공식 검색 엔드포인트로 교체함)
 
-const STEAM_REVIEWS_URL = 'https://store.steampowered.com/appreviews';
+// 2026-10-22부터 예전 주소(store.steampowered.com/appreviews)는 꺼졌다.
+// 새 주소: IUserReviewsService/GetAppReviews (키 없이 사용 가능, 요청은 input_json 하나로 보낸다)
+const STEAM_REVIEWS_URL = 'https://api.steampowered.com/IUserReviewsService/GetAppReviews/v1/';
+
+function reviewsUrl(appid, extra = {}) {
+  const input = {
+    appid: Number(appid),
+    languages: ['all'], // 모든 언어
+    purchase_type: 1, // 1 = 모든 구매 (0은 Steam 구매만)
+    ...extra,
+  };
+  return `${STEAM_REVIEWS_URL}?input_json=${encodeURIComponent(JSON.stringify(input))}`;
+}
+
+// 리뷰 API 자체를 못 쓰는 상태(주소가 꺼짐/이동)인지 판단. 한 게임의 일시적 오류(5xx)는 해당하지 않는다.
+function isReviewsApiGone(err) {
+  return err.code === 'STEAM_HTML' || err.status === 404 || err.status === 410;
+}
+
+function httpError(message, status) {
+  const e = new Error(message);
+  e.status = status;
+  return e;
+}
+
+// 새 API는 { response: {...} } 로 감싸서 준다 (success 필드는 없다)
+async function readReviewsJson(res) {
+  const data = await res.json();
+  return (data && data.response) || data || {};
+}
 
 // 모든 Steam 요청은 steamHttp를 거친다 (요청 수 제한, 차단(403/429) 시 잠시 쉬기)
 const { steamFetch, STEAM_FETCH_HEADERS } = require('./steamHttp');
@@ -41,18 +70,71 @@ async function fetchGamesByOfficialTagSearch(tagIds, poolSize = 100, start = 0) 
   };
 }
 
+// 리뷰 API가 실패하는 동안은 그 API를 건너뛰고 상점 페이지에서 점수를 읽는다.
+const REVIEWS_API_PAUSE_MS = 10 * 60 * 1000;
+let reviewsApiDownUntil = 0;
+
+function reviewsApiDown() {
+  return Date.now() < reviewsApiDownUntil;
+}
+
+function markReviewsApiDown() {
+  if (!reviewsApiDown()) console.error('[Steam] 리뷰 API를 쓰지 못해 10분 동안 상점 페이지에서 점수를 읽습니다.');
+  reviewsApiDownUntil = Date.now() + REVIEWS_API_PAUSE_MS;
+}
+
+// 상점 페이지의 "All Reviews: 98% of the 395,240 user reviews for this game are positive" 문구에서 읽는다.
+// 언어별 줄(English Reviews 등)이 함께 있으면 전체 수가 가장 큰 줄이 '모든 언어' 기준이다.
+// 비율만 알 수 있어 추천/비추천 수는 반올림한 근사값이다 (점수는 소수 첫째 자리까지 같다).
+function parseStoreReviewSummary(html) {
+  const re = /(\d{1,3})%\s+of\s+the\s+([\d,]+)\s+user\s+reviews\s+for\s+this\s+game\s+are\s+positive/gi;
+  let best = null;
+  for (const m of html.matchAll(re)) {
+    const total = Number(m[2].replace(/,/g, ''));
+    if (!best || total > best.total) best = { pct: Number(m[1]), total };
+  }
+  if (!best) return null;
+  const positive = Math.round((best.pct / 100) * best.total);
+  return { positive, negative: best.total - positive };
+}
+
+async function fetchReviewSummaryFromStorePage(appid) {
+  const res = await steamFetch(`https://store.steampowered.com/app/${appid}/?l=english`);
+  if (!res.ok) throw new Error(`상점 페이지 요청 실패: ${res.status}`);
+  const html = await res.text();
+  const parsed = parseStoreReviewSummary(html);
+  if (parsed) return parsed;
+  if (/user reviews/i.test(html) === false) return { positive: 0, negative: 0 }; // 리뷰가 아직 없는 게임
+  throw new Error('상점 페이지에서 리뷰 요약을 읽지 못했습니다.');
+}
+
 // 특정 게임의 Steam 리뷰 요약(추천/비추천 수) 가져오기
 async function fetchReviewSummary(appid) {
-  const url = `${STEAM_REVIEWS_URL}/${appid}?json=1&language=all&purchase_type=all&num_per_page=0`;
-  const res = await steamFetch(url);
-  if (!res.ok) throw new Error(`Steam 리뷰 API 요청 실패: ${res.status}`);
-  const data = await res.json();
-
-  const summary = data.query_summary || {};
-  const positive = summary.total_positive || 0;
-  const negative = summary.total_negative || 0;
-
-  return { positive, negative };
+  if (!reviewsApiDown()) {
+    try {
+      // num_per_page 0은 20개로 취급되어서 1로 요청 (요약은 첫 페이지에만 들어 있다)
+      const res = await steamFetch(reviewsUrl(appid, { num_per_page: 1 }));
+      if (!res.ok) throw httpError(`Steam 리뷰 API 요청 실패: ${res.status}`, res.status);
+      const data = await readReviewsJson(res);
+      const summary = data.query_summary;
+      if (!summary || summary.total_positive === undefined) {
+        const e = new Error('리뷰 요약이 응답에 없습니다.');
+        e.noSummary = true;
+        throw e;
+      }
+      return { positive: summary.total_positive || 0, negative: summary.total_negative || 0 };
+    } catch (err) {
+      if (err.code === 'STEAM_BLOCKED') throw err;
+      if (isReviewsApiGone(err)) {
+        console.error(`[Steam] 리뷰 API 사용 실패(${err.message})`);
+        markReviewsApiDown();
+      } else if (!err.noSummary) {
+        throw err; // 이 게임만의 일시적 오류: 호출한 쪽이 그 게임을 건너뛴다
+      }
+      // 요약이 응답에 없는 게임은 이번만 상점 페이지에서 읽는다
+    }
+  }
+  return fetchReviewSummaryFromStorePage(appid);
 }
 
 // 추천 비율 -> 10점 만점 점수로 환산
@@ -86,12 +168,23 @@ async function fetchGameDetails(appid) {
 }
 
 // 특정 게임의 "가장 유익한" 리뷰 상위 N개 가져오기
-// filter=all은 Steam이 자체적으로 유용성(투표 수 등) 기준으로 정렬한 결과를 반환함
+// filter 0(Helpful)은 Steam이 자체적으로 유용성 기준으로 정렬한 결과를 반환함
 async function fetchTopHelpfulReviews(appid, count = 3) {
-  const url = `${STEAM_REVIEWS_URL}/${appid}?json=1&filter=all&language=all&purchase_type=all&num_per_page=20`;
-  const res = await steamFetch(url);
-  if (!res.ok) throw new Error(`리뷰 조회 실패: ${res.status}`);
-  const data = await res.json();
+  if (reviewsApiDown()) return []; // 리뷰 API를 못 쓰는 동안은 리뷰 본문 없이 점수만 보여준다
+  let data;
+  try {
+    const res = await steamFetch(reviewsUrl(appid, { filter: 0, num_per_page: 20, day_range: 365 }));
+    if (!res.ok) throw httpError(`리뷰 조회 실패: ${res.status}`, res.status);
+    data = await readReviewsJson(res);
+  } catch (err) {
+    if (err.code === 'STEAM_BLOCKED') throw err;
+    if (isReviewsApiGone(err)) {
+      console.error(`[Steam] 리뷰 본문 조회 실패(${err.message})`);
+      markReviewsApiDown();
+      return [];
+    }
+    throw err;
+  }
 
   const reviews = (data.reviews || [])
     .map((r) => ({
@@ -100,7 +193,6 @@ async function fetchTopHelpfulReviews(appid, count = 3) {
       votesUp: r.votes_up || 0,
       language: r.language || 'unknown',
     }))
-    // Steam이 이미 유용성순으로 주지만, 안전하게 votes_up 기준으로 한 번 더 정렬
     .sort((a, b) => b.votesUp - a.votesUp)
     .slice(0, count);
 
@@ -109,6 +201,7 @@ async function fetchTopHelpfulReviews(appid, count = 3) {
 
 module.exports = {
   STEAM_FETCH_HEADERS,
+  parseStoreReviewSummary,
   fetchGamesByOfficialTagSearch,
   fetchReviewSummary,
   calculateScore,

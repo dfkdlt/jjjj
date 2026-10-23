@@ -22,11 +22,11 @@ const router = express.Router();
 
 const STEAM_BUSY_MESSAGE = 'Steam이 요청을 일시적으로 제한하고 있어요. 몇 분 뒤에 다시 시도해 주세요. (이미 검색한 적 있는 게임은 그대로 볼 수 있어요)';
 
-const CACHE_HOURS = 24; // 캐시 유효 시간
+const CACHE_HOURS = 48; // 캐시 유효 시간
 const REVIEWS_PER_GAME = 3; // 게임당 보여줄 유익한 리뷰 개수
 const KOREAN_MIN_CACHED = 5; // '한글 지원만' 검색일 때 캐시에 이만큼 이상 있어야 캐시를 쓰고, 아니면 새로 조회
 const MAX_INPUT = 200;
-const RESULT_COUNT = 15; // 실제로 점수/리뷰까지 계산해서 보여줄 게임 수
+const RESULT_COUNT = 10; // 실제로 점수/리뷰까지 계산해서 보여줄 게임 수
 
 // game_id 목록에 대한 상위 리뷰들을 한 번에 조회해서 { [game_id]: [review, ...] } 형태로 반환
 async function fetchReviewsMapForGameIds(gameIds) {

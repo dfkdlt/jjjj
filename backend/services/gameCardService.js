@@ -4,9 +4,9 @@
 const pool = require('../db');
 const { fetchReviewSummary, calculateScore, fetchGameDetails } = require('./steamService');
 
-const CACHE_HOURS = 24;
-const CONCURRENCY = 4;
-const MAX_LIVE_FETCH = 20; // 한 번의 요청에서 Steam에 새로 물어볼 최대 게임 수 (저장된 값이 없는 게임만)
+const CACHE_HOURS = 48;
+const CONCURRENCY = 2;
+const MAX_LIVE_FETCH = 8; // 한 번의 요청에서 Steam에 새로 물어볼 최대 게임 수 (저장된 값이 없는 게임만)
 
 // 저장된 게임 정보. fresh=false는 24시간이 지난 값(Steam이 막혔을 때 대신 쓴다)
 async function loadCached(appids) {

@@ -7,7 +7,7 @@ const pool = require('../db');
 const { ready } = require('./ensureTables');
 const { steamFetch } = require('./steamHttp');
 
-const PRICE_CACHE_HOURS = 6;
+const PRICE_CACHE_HOURS = 12;
 const BATCH = 40; // 한 번에 물어볼 appid 수
 
 // appids -> { [appid]: { discount_percent, initial_formatted, final_formatted } }

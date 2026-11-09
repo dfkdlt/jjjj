@@ -40,22 +40,10 @@
       <button type="submit" class="btn">검색</button>
     </form>
 
-    <div class="price-filter" role="group" aria-label="가격 범위">
-      <span class="price-filter-label">가격</span>
-      <select id="pricePreset" class="input price-preset" aria-label="가격 빠른 선택">
-        <option value="">전체</option>
-        <option value="0-0">무료</option>
-        <option value="-10000">1만원 이하</option>
-        <option value="-30000">3만원 이하</option>
-        <option value="-50000">5만원 이하</option>
-        <option value="custom">직접 입력</option>
-      </select>
-      <span id="priceCustom" class="price-custom" hidden>
-        <input type="number" id="priceMin" class="input price-input" min="0" step="1000" placeholder="최소" aria-label="최소 가격(원)" />
-        <span aria-hidden="true">~</span>
-        <input type="number" id="priceMax" class="input price-input" min="0" step="1000" placeholder="최대" aria-label="최대 가격(원)" />
-        <span class="price-unit">원</span>
-      </span>
+    <div class="price-filter">
+      <label for="priceSlider" class="price-filter-label">가격</label>
+      <input type="range" id="priceSlider" class="price-slider" min="0" max="7" step="1" value="7" aria-describedby="priceLabel" />
+      <output id="priceLabel" class="price-label" for="priceSlider">모든 가격</output>
     </div>
 
     <div id="chips" class="chips" role="group" aria-label="추천 키워드"></div>

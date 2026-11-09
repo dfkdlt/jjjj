@@ -763,14 +763,14 @@ circle.donut-seg { stroke: none; }
   .topbar-left .brand { display: none; } /* 홈 메뉴가 같은 곳으로 가므로 로고는 숨겨서 자리를 만든다 */
 }
 
-/* 가격 범위 */
-.price-filter{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0 0}
+/* 가격 범위 슬라이더 */
+.price-filter{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:12px 0 0}
 .price-filter-label{font-size:.9rem;color:var(--muted)}
-.price-preset{width:auto;min-width:120px}
-.price-custom{display:inline-flex;align-items:center;gap:6px}
-.price-custom[hidden]{display:none}
-.price-input{width:110px}
-.price-unit{font-size:.9rem}
+.price-slider{--fill:100%;-webkit-appearance:none;appearance:none;width:min(260px,60vw);height:6px;border-radius:3px;background:linear-gradient(to right,var(--accent) var(--fill),var(--line-strong) var(--fill));outline:none;cursor:pointer}
+.price-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid var(--accent)}
+.price-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid var(--accent)}
+.price-slider:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.price-label{font-size:.9rem;font-weight:600;min-width:7em}
 .game-price-row{margin:2px 0 4px}
 .game-price strong{font-weight:700}
 .game-price-free{color:#2fbf71;font-weight:700}
@@ -812,3 +812,4 @@ body.dm-open{overflow:hidden}
 @media (max-width:600px){.dm-overlay{padding:0}.dm{border-radius:0;min-height:100%}.dm-title{font-size:1.25rem}}
 .dm-head{padding-right:60px}
 .dm-stage{max-height:70vh}
+.dm-note-tight{padding-top:4px}

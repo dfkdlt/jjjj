@@ -109,8 +109,6 @@
       score !== null ? tile('겜슐랭 점수', `<span class="${tierClass(score)}">${score.toFixed(1)}</span> / 10`) : '',
       score !== null ? tile('스팀 평가', `추천 ${Number(g.total_positive).toLocaleString()} · 비추천 ${Number(g.total_negative).toLocaleString()}`) : '',
       tile('가격', priceHtmlLocal(d.price)),
-      d.release_date ? tile('출시일', escapeHtml(d.release_date)) : '',
-      d.developers && d.developers.length ? tile('개발사', escapeHtml(d.developers.join(', '))) : '',
       d.publishers && d.publishers.length ? tile('배급사', escapeHtml(d.publishers.join(', '))) : '',
       d.metacritic ? tile('메타크리틱', String(d.metacritic)) : '',
       g.supports_korean !== undefined && score !== null ? tile('한국어', g.supports_korean ? '지원' : '미지원') : '',
@@ -126,7 +124,7 @@
         ${steamBtn(appid)}
       </div>
       ${genres ? `<div class="dm-chips">${genres}</div>` : ''}
-      ${d.short_description ? `<p class="dm-desc">${escapeHtml(d.short_description)}</p>` : ''}
+      ${d.short_description ? `<p class="dm-desc">${escapeHtml(d.short_description)}</p>${d.translated ? '<p class="dm-note dm-note-tight">개발사가 한국어 소개를 올리지 않아 자동 번역했어요.</p>' : ''}` : ''}
       <div class="dm-tiles">${tiles}</div>
       ${media.length ? `<h3 class="dm-h">소개 영상과 사진</h3><div class="dm-gallery"><div class="dm-stage"></div><div class="dm-thumbs"></div></div>` : '<p class="dm-note">Steam에 등록된 영상이나 사진이 없어요.</p>'}
       ${g.ai_summary ? `<div class="dm-ai">${aiBlock(g)}</div>` : ''}

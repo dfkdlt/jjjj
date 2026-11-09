@@ -1,29 +1,30 @@
 const searchForm = document.getElementById('searchForm');
 const keywordInput = document.getElementById('keywordInput');
-const pricePreset = document.getElementById('pricePreset');
-const priceCustom = document.getElementById('priceCustom');
-const priceMinInput = document.getElementById('priceMin');
-const priceMaxInput = document.getElementById('priceMax');
+const priceSlider = document.getElementById('priceSlider');
+const priceLabel = document.getElementById('priceLabel');
 
-// 현재 선택된 가격 범위를 검색 주소에 붙일 문자열로 만든다 (비어 있으면 제한 없음)
-function priceParams() {
-  const v = pricePreset.value;
-  let min = '';
-  let max = '';
-  if (v === 'custom') {
-    min = priceMinInput.value.trim();
-    max = priceMaxInput.value.trim();
-  } else if (v) {
-    [min, max] = v.split('-');
-  }
-  let q = '';
-  if (min !== '') q += `&price_min=${encodeURIComponent(min)}`;
-  if (max !== '') q += `&price_max=${encodeURIComponent(max)}`;
-  return q;
+// 슬라이더 칸마다의 "최대 가격(원)". 맨 오른쪽은 제한 없음.
+const PRICE_STEPS = [0, 5000, 10000, 20000, 30000, 50000, 70000, null];
+
+function priceLabelText() {
+  const v = PRICE_STEPS[Number(priceSlider.value)];
+  if (v === null) return '모든 가격';
+  if (v === 0) return '무료만';
+  return `${v.toLocaleString()}원 이하`;
 }
-pricePreset.addEventListener('change', () => {
-  priceCustom.hidden = pricePreset.value !== 'custom';
-});
+function syncPriceLabel() {
+  priceLabel.textContent = priceLabelText();
+  const pct = (Number(priceSlider.value) / Number(priceSlider.max)) * 100;
+  priceSlider.style.setProperty('--fill', pct + '%');
+}
+priceSlider.addEventListener('input', syncPriceLabel);
+syncPriceLabel();
+
+// 현재 선택된 가격 범위를 검색 주소에 붙일 문자열로 만든다 (제한 없으면 빈 문자열)
+function priceParams() {
+  const v = PRICE_STEPS[Number(priceSlider.value)];
+  return v === null ? '' : `&price_max=${v}`;
+}
 
 function priceHtml(game) {
   const p = game.price;

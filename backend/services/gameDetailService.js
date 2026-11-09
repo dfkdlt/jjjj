@@ -2,6 +2,7 @@
 const pool = require('../db');
 const { steamFetch } = require('./steamHttp');
 const { toCardPrice } = require('./priceService');
+const { translateToKorean } = require('./translateService');
 
 const DETAIL_CACHE_HOURS = 24;
 const MAX_SCREENSHOTS = 20;
@@ -113,6 +114,15 @@ async function getGameDetail(appid) {
     const json = await res.json();
     const detail = parseDetail(appid, json && json[appid]);
     if (!detail) return { detail: cached ? cached.data : null, stale: !!cached };
+    // 개발사가 한국어 소개를 안 쓴 게임은 Steam이 영어 원문을 주므로 한국어로 번역해서 보여 준다
+    if (detail.short_description && !/[가-힣]/.test(detail.short_description)) {
+      const ko = await translateToKorean(detail.short_description).catch(() => null);
+      if (ko) {
+        detail.short_description_original = detail.short_description;
+        detail.short_description = ko;
+        detail.translated = true;
+      }
+    }
     await ensureTable();
     await pool.query(
       'INSERT INTO game_details (appid, payload) VALUES (?, ?) ON DUPLICATE KEY UPDATE payload = VALUES(payload), updated_at = CURRENT_TIMESTAMP',

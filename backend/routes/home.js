@@ -17,6 +17,7 @@ const SEARCH_CACHE_MS = 2 * 60 * 60 * 1000; // Steam 검색 결과는 2시간 �
 const POOL_SIZE = 60; // 한 번에 읽어 오는 후보 수
 const SHOW_COUNT = 4; // 섹션당 보여줄 게임 수
 const DEALS_SHOW = 12; // 할인 알림에 보여줄 최대 게임 수
+const RECENT_MAX_LIVE = 24; // 갓 나온 게임은 리뷰 10개 미만이 많아서, 4개를 채우려면 더 많이 확인해야 한다
 const RECENT_MIN_REVIEWS = 10; // 갓 나와서 리뷰가 거의 없는 게임은 점수가 의미 없어서 제외
 
 const searchCache = new Map();
@@ -44,7 +45,7 @@ router.get('/recent', authMiddleware, async (req, res) => {
     await ready;
     const games = (await cachedSearch([], 'Released_DESC')).filter((g) => isReleased(g.released));
     const hidden = await getHiddenAppids(req.user.id, []);
-    const cards = await getCards(games.filter((g) => !hidden.has(g.appid)), 4, { minReviews: RECENT_MIN_REVIEWS });
+    const cards = await getCards(games.filter((g) => !hidden.has(g.appid)), SHOW_COUNT, { minReviews: RECENT_MIN_REVIEWS, maxLive: RECENT_MAX_LIVE });
     await markLiked(req.user.id, cards);
     await markFriendLikes(req.user.id, cards);
     res.json({ results: cards });

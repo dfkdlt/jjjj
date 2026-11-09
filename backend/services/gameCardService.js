@@ -58,10 +58,10 @@ function toCard(base, c) {
 
 // candidates: [{ appid, name, released, image }] (보여줄 우선순위 순서)
 // limit개가 채워질 때까지 앞에서부터 처리. minReviews 미만이면 건너뜀 (갓 나와 리뷰가 거의 없는 게임 제외용)
-async function getCards(candidates, limit, { minReviews = 0 } = {}) {
+async function getCards(candidates, limit, { minReviews = 0, maxLive = MAX_LIVE_FETCH } = {}) {
   const cached = await loadCached(candidates.map((c) => c.appid));
   const out = [];
-  let liveLeft = MAX_LIVE_FETCH;
+  let liveLeft = maxLive;
   let blocked = false;
   for (let i = 0; i < candidates.length && out.length < limit && !blocked; i += CONCURRENCY) {
     const chunk = candidates.slice(i, i + CONCURRENCY);

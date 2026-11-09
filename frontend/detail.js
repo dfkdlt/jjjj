@@ -109,7 +109,6 @@
       score !== null ? tile('겜슐랭 점수', `<span class="${tierClass(score)}">${score.toFixed(1)}</span> / 10`) : '',
       score !== null ? tile('스팀 평가', `추천 ${Number(g.total_positive).toLocaleString()} · 비추천 ${Number(g.total_negative).toLocaleString()}`) : '',
       tile('가격', priceHtmlLocal(d.price)),
-      d.publishers && d.publishers.length ? tile('배급사', escapeHtml(d.publishers.join(', '))) : '',
       d.metacritic ? tile('메타크리틱', String(d.metacritic)) : '',
       g.supports_korean !== undefined && score !== null ? tile('한국어', g.supports_korean ? '지원' : '미지원') : '',
     ].join('');

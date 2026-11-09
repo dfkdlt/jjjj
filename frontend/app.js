@@ -3,11 +3,13 @@ const keywordInput = document.getElementById('keywordInput');
 const priceSlider = document.getElementById('priceSlider');
 const priceLabel = document.getElementById('priceLabel');
 
-// 슬라이더 칸마다의 "최대 가격(원)". 맨 오른쪽은 제한 없음.
-const PRICE_STEPS = [0, 5000, 10000, 20000, 30000, 50000, 70000, null];
-
+// 슬라이더 값 = 최대 가격(원, 1원 단위). 맨 오른쪽(최댓값)은 제한 없음. 할인이 적용된 현재 판매가 기준.
+function priceValue() {
+  const v = Number(priceSlider.value);
+  return v >= Number(priceSlider.max) ? null : v;
+}
 function priceLabelText() {
-  const v = PRICE_STEPS[Number(priceSlider.value)];
+  const v = priceValue();
   if (v === null) return '모든 가격';
   if (v === 0) return '무료만';
   return `${v.toLocaleString()}원 이하`;
@@ -22,7 +24,7 @@ syncPriceLabel();
 
 // 현재 선택된 가격 범위를 검색 주소에 붙일 문자열로 만든다 (제한 없으면 빈 문자열)
 function priceParams() {
-  const v = PRICE_STEPS[Number(priceSlider.value)];
+  const v = priceValue();
   return v === null ? '' : `&price_max=${v}`;
 }
 

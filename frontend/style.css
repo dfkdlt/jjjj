@@ -766,7 +766,7 @@ circle.donut-seg { stroke: none; }
 /* 가격 범위 슬라이더 */
 .price-filter{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:12px 0 0}
 .price-filter-label{font-size:.9rem;color:var(--muted)}
-.price-slider{--fill:100%;-webkit-appearance:none;appearance:none;width:min(260px,60vw);height:6px;border-radius:3px;background:linear-gradient(to right,var(--accent) var(--fill),var(--line-strong) var(--fill));outline:none;cursor:pointer}
+.price-slider{--fill:100%;-webkit-appearance:none;appearance:none;width:min(360px,70vw);height:6px;border-radius:3px;background:linear-gradient(to right,var(--accent) var(--fill),var(--line-strong) var(--fill));outline:none;cursor:pointer}
 .price-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid var(--accent)}
 .price-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid var(--accent)}
 .price-slider:focus-visible{outline:2px solid var(--accent);outline-offset:4px}

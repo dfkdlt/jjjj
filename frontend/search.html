@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>검색 - 겜슐랭</title>
+<link rel="icon" type="image/png" href="logo.png" />
 <link rel="stylesheet" href="style.css" />
 <script src="theme.js"></script>
 </head>
@@ -11,7 +12,7 @@
   <header class="topbar">
     <div class="topbar-inner">
       <div class="topbar-left">
-      <a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">10</span><span class="brand-text">겜슐랭</span></a>
+      <a class="brand" href="index.html"><img class="brand-logo" src="logo.png" alt="" width="34" height="36" /><span class="brand-text">겜슐랭</span></a>
       <nav class="topnav" aria-label="주 메뉴">
         <a href="index.html">홈</a>
         <a href="search.html" aria-current="page">검색</a>
@@ -38,6 +39,24 @@
       <input type="text" id="keywordInput" class="input" placeholder="예: 친구들이랑 같이 하는 무서운 멀티게임" maxlength="200" aria-label="검색 키워드" autocomplete="off" required />
       <button type="submit" class="btn">검색</button>
     </form>
+
+    <div class="price-filter" role="group" aria-label="가격 범위">
+      <span class="price-filter-label">가격</span>
+      <select id="pricePreset" class="input price-preset" aria-label="가격 빠른 선택">
+        <option value="">전체</option>
+        <option value="0-0">무료</option>
+        <option value="-10000">1만원 이하</option>
+        <option value="-30000">3만원 이하</option>
+        <option value="-50000">5만원 이하</option>
+        <option value="custom">직접 입력</option>
+      </select>
+      <span id="priceCustom" class="price-custom" hidden>
+        <input type="number" id="priceMin" class="input price-input" min="0" step="1000" placeholder="최소" aria-label="최소 가격(원)" />
+        <span aria-hidden="true">~</span>
+        <input type="number" id="priceMax" class="input price-input" min="0" step="1000" placeholder="최대" aria-label="최대 가격(원)" />
+        <span class="price-unit">원</span>
+      </span>
+    </div>
 
     <div id="chips" class="chips" role="group" aria-label="추천 키워드"></div>
 
@@ -68,6 +87,7 @@
 
   <script src="config.js"></script>
   <script src="common.js"></script>
+  <script src="detail.js"></script>
   <script src="history.js"></script>
   <script src="app.js"></script>
 </body>

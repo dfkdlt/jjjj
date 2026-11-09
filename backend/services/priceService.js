@@ -85,4 +85,45 @@ async function getPrices(appids) {
   }
 }
 
-module.exports = { getPrices, fetchPricesFromSteam, PRICE_CACHE_HOURS };
+// "₩ 29,000" -> 29000. 숫자를 못 읽으면 null
+function parseWon(text) {
+  if (!text) return null;
+  const digits = String(text).replace(/[^\d]/g, '');
+  return digits ? Number(digits) : null;
+}
+
+// 검색 결과 카드에 보여줄 가격 모양으로 바꾼다.
+//  - 가격이 있으면 state 'paid' (할인 중이면 discount_percent > 0)
+//  - Steam이 가격을 주지 않으면 state 'free' (무료 게임이 대부분이라 무료로 본다)
+function toCardPrice(p) {
+  if (!p) return null; // 가격을 알 수 없음 (Steam을 읽지 못했고 저장된 값도 없음)
+  if (p.final_formatted) {
+    return {
+      state: 'paid',
+      final_won: parseWon(p.final_formatted),
+      initial_won: parseWon(p.initial_formatted || p.final_formatted),
+      final_formatted: p.final_formatted,
+      initial_formatted: p.initial_formatted || p.final_formatted,
+      discount_percent: p.discount_percent || 0,
+    };
+  }
+  return { state: 'free', final_won: 0, initial_won: 0, final_formatted: null, initial_formatted: null, discount_percent: 0 };
+}
+
+// results의 각 항목에 price를 붙인다. 반환: Steam을 읽지 못해 일부 가격이 비었는지
+async function attachPrices(results, known = null) {
+  const map = known || (await getPrices(results.map((r) => r.appid)));
+  for (const r of results) r.price = toCardPrice(map.prices[r.appid]);
+  return map.stale;
+}
+
+// 가격 범위(원). min/max는 null이면 제한 없음. 가격을 모르는 게임은 범위를 정한 경우 뺀다.
+function inPriceRange(price, min, max) {
+  if (min == null && max == null) return true;
+  if (!price || price.final_won == null) return false;
+  if (min != null && price.final_won < min) return false;
+  if (max != null && price.final_won > max) return false;
+  return true;
+}
+
+module.exports = { getPrices, fetchPricesFromSteam, PRICE_CACHE_HOURS, parseWon, toCardPrice, attachPrices, inPriceRange };

@@ -158,3 +158,10 @@ CREATE TABLE IF NOT EXISTS user_settings (
   likes_private TINYINT(1) NOT NULL DEFAULT 0,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- 게임 상세 화면용 Steam 소개 정보 캐시 (서버 시작 시 자동 생성)
+CREATE TABLE IF NOT EXISTS game_details (
+  appid INT NOT NULL PRIMARY KEY,
+  payload MEDIUMTEXT NOT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

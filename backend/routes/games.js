@@ -17,6 +17,8 @@ const { markLiked } = require('./likes');
 const { getHiddenAppids } = require('../services/dislikeFilter');
 const { recordSearch } = require('./history');
 const { markFriendLikes } = require('../services/friendService');
+const { getGameDetail } = require('../services/gameDetailService');
+const { getPrices, attachPrices, toCardPrice, inPriceRange } = require('../services/priceService');
 
 const router = express.Router();
 
@@ -77,8 +79,22 @@ router.get('/search', authMiddleware, async (req, res) => {
     return res.status(400).json({ error: '잘못된 cursor 값입니다.' });
   }
 
+  // 가격 범위(원). 비어 있으면 제한 없음. 무료만 보려면 최대 가격을 0으로.
+  const parsePrice = (v) => (v === undefined || v === '' ? null : /^\d{1,8}$/.test(String(v)) ? Number(v) : NaN);
+  const priceMin = parsePrice(req.query.price_min);
+  const priceMax = parsePrice(req.query.price_max);
+  if (Number.isNaN(priceMin) || Number.isNaN(priceMax)) {
+    return res.status(400).json({ error: '가격은 0 이상의 숫자로 입력해 주세요.' });
+  }
+  if (priceMin != null && priceMax != null && priceMin > priceMax) {
+    return res.status(400).json({ error: '최소 가격이 최대 가격보다 클 수 없어요.' });
+  }
+  const priceFilter = priceMin != null || priceMax != null;
+
   const { tags, failed, aiMapped, interpretation, koreanOnly, naturalLanguage } = await parseKeywordsToTags(String(keyword));
   const meta = {
+    price_min: priceMin,
+    price_max: priceMax,
     keyword,
     tags,
     ai_mapped: aiMapped,
@@ -124,9 +140,16 @@ router.get('/search', authMiddleware, async (req, res) => {
     const hidden = await getHiddenAppids(req.user.id, tags);
 
     const visible = cached.filter((g) => !hidden.has(g.appid));
-    const usable = koreanOnly ? visible.filter((g) => g.supports_korean) : visible;
+    const usableAll = koreanOnly ? visible.filter((g) => g.supports_korean) : visible;
+    // 가격 범위를 정했으면 후보 전체의 가격을 알아야 걸러낼 수 있다 (저장된 값을 쓰고, 오래된 것만 Steam에 묻는다)
+    const cachePriceMap = priceFilter ? await getPrices(usableAll.map((g) => g.appid)) : null;
+    const usable = priceFilter
+      ? usableAll.filter((g) => inPriceRange(toCardPrice(cachePriceMap.prices[g.appid]), priceMin, priceMax))
+      : usableAll;
     // '한글 지원만'이면 캐시에 한글 지원 게임이 충분할 때만 캐시를 쓰고, 부족하면 새로 조회
-    const cacheOk = cached.length > 0 && (!koreanOnly || usable.length >= KOREAN_MIN_CACHED);
+    // 가격 범위에 맞는 게임이 캐시에 하나도 없으면 Steam에서 새로 찾는다
+    const cacheOk =
+      cached.length > 0 && (!koreanOnly || usableAll.length >= KOREAN_MIN_CACHED) && (!priceFilter || usable.length > 0);
 
     if (cacheOk && (cursor.phase === 'first' || cursor.phase === 'c')) {
       const from = cursor.phase === 'c' ? cursor.n : 0;
@@ -143,13 +166,14 @@ router.get('/search', authMiddleware, async (req, res) => {
         header_image: g.header_image,
         top_reviews: reviewsMap[g.id] || [],
       }));
+      const priceStale = await attachPrices(results, cachePriceMap || undefined);
       await attachSummaries(results, { regenerate: false }); // 저장된 AI 요약 사용, 없는 것만 생성
       await markLiked(req.user.id, results);
       await markFriendLikes(req.user.id, results);
       // 캐시를 다 보여 줬으면 Steam에서 캐시에 없는 게임을 더 찾아 본다
       const nextCursor = from + RESULT_COUNT < usable.length ? `c.${from + RESULT_COUNT}` : 'x.0';
       if (cursor.phase === 'first' && results.length > 0) await recordSearch(req.user.id, keyword);
-      return res.json({ ...meta, source: 'cache', hidden_count: hiddenCount, next_cursor: nextCursor, results });
+      return res.json({ ...meta, source: 'cache', hidden_count: hiddenCount, next_cursor: nextCursor, price_unavailable: !!priceStale, results });
     }
 
     // 2) 캐시가 없거나 다 보여 줬으면 Steam 공식 검색(태그 필터)으로 새로 조회
@@ -159,6 +183,8 @@ router.get('/search', authMiddleware, async (req, res) => {
     const known = skipKnown ? new Set(cached.map((g) => g.appid)) : new Set();
 
     const { totalCount, games: allCandidates } = await fetchGamesByOfficialTagSearch(tagIds, 100, startAt);
+    // 가격 범위를 정했으면 후보의 가격을 먼저 알아 두고, 범위 밖 게임은 리뷰를 읽기 전에 건너뛴다
+    const livePriceMap = priceFilter ? await getPrices(allCandidates.map((g) => g.appid)) : null;
 
     const results = [];
     let steamBlocked = false; // Steam이 요청을 일시 제한한 경우
@@ -171,6 +197,7 @@ router.get('/search', authMiddleware, async (req, res) => {
       examined++;
       if (hidden.has(game.appid)) { hiddenCount++; continue; }
       if (known.has(game.appid)) continue;
+      if (priceFilter && !inPriceRange(toCardPrice(livePriceMap.prices[game.appid]), priceMin, priceMax)) continue;
       try {
         const { positive, negative } = await fetchReviewSummary(game.appid);
         const score = calculateScore(positive, negative);
@@ -268,17 +295,44 @@ router.get('/search', authMiddleware, async (req, res) => {
       `[검색 요약] 태그=${tags.join(',')} Steam ${startAt}번째부터 ${examined}개 확인 -> 성공=${results.length}개 (Steam 전체 매칭=${totalCount}개)`
     );
 
+    const livePriceStale = await attachPrices(results, livePriceMap || undefined);
     await attachSummaries(results, { regenerate: true }); // 새로 가져온 리뷰 기준으로 AI 요약 생성
 
     results.sort((a, b) => b.score - a.score);
     await markLiked(req.user.id, results);
     await markFriendLikes(req.user.id, results);
     if (cursor.phase === 'first' && results.length > 0) await recordSearch(req.user.id, keyword);
-    res.json({ ...meta, source: 'live', total_matching_on_steam: totalCount, hidden_count: hiddenCount, next_cursor: nextCursor, results });
+    res.json({ ...meta, source: 'live', total_matching_on_steam: totalCount, hidden_count: hiddenCount, next_cursor: nextCursor, price_unavailable: !!livePriceStale, results });
   } catch (err) {
     console.error(err);
     if (err.code === 'STEAM_BLOCKED') return res.status(503).json({ error: STEAM_BUSY_MESSAGE });
     res.status(500).json({ error: '게임 검색 중 오류가 발생했습니다.' });
+  }
+});
+
+// 게임 상세 화면: Steam 소개 정보(설명, 영상, 사진) + 우리 점수/AI 요약
+// GET /api/games/:appid/detail
+router.get('/:appid/detail', authMiddleware, async (req, res) => {
+  const appid = Number(req.params.appid);
+  if (!Number.isInteger(appid) || appid <= 0) return res.status(400).json({ error: '잘못된 게임 번호예요.' });
+  try {
+    const { detail, stale } = await getGameDetail(appid);
+    const [rows] = await pool.query(
+      'SELECT appid, name, score, total_positive, total_negative, supports_korean, header_image FROM games WHERE appid = ?',
+      [appid]
+    );
+    const ours = rows[0] || null;
+    if (!detail && !ours) return res.status(404).json({ error: 'Steam에서 이 게임의 정보를 찾지 못했어요.' });
+    const game = ours
+      ? { ...ours, score: Number(ours.score), top_reviews: [] }
+      : { appid, name: detail.name, score: null, total_positive: 0, total_negative: 0, supports_korean: false, header_image: detail.header_image, top_reviews: [] };
+    await attachSummaries([game], { regenerate: false });
+    await markLiked(req.user.id, [game]);
+    res.json({ appid, detail, game, stale });
+  } catch (err) {
+    console.error('[상세] 실패:', err.message);
+    if (err.code === 'STEAM_BLOCKED') return res.status(503).json({ error: STEAM_BUSY_MESSAGE });
+    res.status(502).json({ error: '게임 정보를 가져오지 못했어요. 잠시 후 다시 시도해 주세요.' });
   }
 });
 

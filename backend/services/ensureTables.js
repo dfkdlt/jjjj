@@ -85,6 +85,12 @@ const STATEMENTS = [
     likes_private TINYINT(1) NOT NULL DEFAULT 0,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
+  // 게임 상세 화면용 Steam 소개 정보(영상/스크린샷 등) 저장
+  `CREATE TABLE IF NOT EXISTS game_details (
+    appid INT NOT NULL PRIMARY KEY,
+    payload MEDIUMTEXT NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
 ];
 
 const ready = (async () => {

@@ -1,5 +1,39 @@
 const searchForm = document.getElementById('searchForm');
 const keywordInput = document.getElementById('keywordInput');
+const pricePreset = document.getElementById('pricePreset');
+const priceCustom = document.getElementById('priceCustom');
+const priceMinInput = document.getElementById('priceMin');
+const priceMaxInput = document.getElementById('priceMax');
+
+// 현재 선택된 가격 범위를 검색 주소에 붙일 문자열로 만든다 (비어 있으면 제한 없음)
+function priceParams() {
+  const v = pricePreset.value;
+  let min = '';
+  let max = '';
+  if (v === 'custom') {
+    min = priceMinInput.value.trim();
+    max = priceMaxInput.value.trim();
+  } else if (v) {
+    [min, max] = v.split('-');
+  }
+  let q = '';
+  if (min !== '') q += `&price_min=${encodeURIComponent(min)}`;
+  if (max !== '') q += `&price_max=${encodeURIComponent(max)}`;
+  return q;
+}
+pricePreset.addEventListener('change', () => {
+  priceCustom.hidden = pricePreset.value !== 'custom';
+});
+
+function priceHtml(game) {
+  const p = game.price;
+  if (!p) return '<span class="game-price game-price-unknown">가격 정보 없음</span>';
+  if (p.state === 'free') return '<span class="game-price game-price-free">무료</span>';
+  if (p.discount_percent > 0) {
+    return `<span class="game-price"><span class="price-off">-${p.discount_percent}%</span> <s class="price-old">${escapeHtml(p.initial_formatted)}</s> <strong>${escapeHtml(p.final_formatted)}</strong></span>`;
+  }
+  return `<span class="game-price"><strong>${escapeHtml(p.final_formatted)}</strong></span>`;
+}
 const statusMessage = document.getElementById('statusMessage');
 const resultsGrid = document.getElementById('resultsGrid');
 const chipsBox = document.getElementById('chips');
@@ -123,9 +157,10 @@ async function runSearch(keyword) {
   setStatus('검색하는 중입니다. 처음 검색하는 키워드는 1~2분 걸릴 수 있어요.');
   showSkeleton();
   submitBtn.disabled = true;
+  const priceQuery = priceParams();
 
   try {
-    const res = await apiFetch(`/games/search?keyword=${encodeURIComponent(keyword)}`);
+    const res = await apiFetch(`/games/search?keyword=${encodeURIComponent(keyword)}${priceQuery}`);
     const data = await res.json();
     if (token !== searchToken) return; // 그 사이 다른 검색을 시작했으면 이 응답은 버림
 
@@ -138,6 +173,7 @@ async function runSearch(keyword) {
     window.currentSearchTags = data.tags; // 비추천할 때 "어떤 태그로 검색했는지" 같이 보냄
     state = {
       keyword,
+      priceQuery,
       meta: data,
       cursor: data.next_cursor || null,
       shown: new Set(data.results.map((g) => g.appid)),
@@ -186,7 +222,7 @@ async function loadMore() {
   let isError = false;
   try {
     const res = await apiFetch(
-      `/games/search?keyword=${encodeURIComponent(st.keyword)}&cursor=${encodeURIComponent(st.cursor)}`
+      `/games/search?keyword=${encodeURIComponent(st.keyword)}&cursor=${encodeURIComponent(st.cursor)}${st.priceQuery || ''}`
     );
     const data = await res.json();
     if (token !== searchToken) return;
@@ -275,6 +311,7 @@ function resultsHtml(results, startIndex) {
               <a class="game-title" href="https://store.steampowered.com/app/${encodeURIComponent(game.appid)}" target="_blank" rel="noopener">${escapeHtml(game.name)}</a>
               ${badge}
             </div>
+            <p class="game-price-row">${priceHtml(game)}</p>
             <p class="game-counts">추천 ${game.total_positive.toLocaleString()}명, 비추천 ${game.total_negative.toLocaleString()}명</p>
             ${friendLikersHtml(game)}
             <div class="game-actions">${likeButtonHtml(game)}${dislikeButtonHtml(game)}</div>

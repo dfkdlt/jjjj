@@ -37,16 +37,36 @@
           <button type="submit" class="btn">로그인</button>
         </form>
 
-        <form id="registerForm" class="auth-form" hidden>
+        <form id="registerForm" class="auth-form" hidden novalidate>
           <div class="field">
             <label for="registerUsername">아이디</label>
-            <input type="text" id="registerUsername" class="input" autocomplete="username" required />
+            <input type="text" id="registerUsername" class="input" autocomplete="username" minlength="3" maxlength="30" placeholder="3~30자" required />
           </div>
+
+          <div class="field">
+            <label for="registerEmail">이메일</label>
+            <input type="email" id="registerEmail" class="input" autocomplete="email" maxlength="254" placeholder="example@email.com" required />
+            <p id="emailHint" class="hint" role="status" aria-live="polite"></p>
+          </div>
+
           <div class="field">
             <label for="registerPassword">비밀번호</label>
-            <input type="password" id="registerPassword" class="input" autocomplete="new-password" required />
+            <input type="password" id="registerPassword" class="input" autocomplete="new-password" maxlength="72" placeholder="8자 이상, 영문+숫자" required />
           </div>
-          <button type="submit" class="btn">가입하기</button>
+          <div class="field">
+            <label for="registerPasswordConfirm">비밀번호 확인</label>
+            <input type="password" id="registerPasswordConfirm" class="input" autocomplete="new-password" maxlength="72" placeholder="비밀번호를 한 번 더 입력" required />
+            <p id="pwHint" class="hint" role="status" aria-live="polite"></p>
+          </div>
+
+          <fieldset class="consent">
+            <legend class="sr-only">약관 동의</legend>
+            <label class="consent-all"><input type="checkbox" id="agreeAll" /> 전체 동의</label>
+            <label class="consent-item"><input type="checkbox" id="agreeTerms" /> <span>(필수) 이용약관에 동의합니다.</span> <a href="terms.html#terms" target="_blank" rel="noopener">보기</a></label>
+            <label class="consent-item"><input type="checkbox" id="agreePrivacy" /> <span>(필수) 개인정보 수집·이용에 동의합니다.</span> <a href="terms.html#privacy" target="_blank" rel="noopener">보기</a></label>
+          </fieldset>
+
+          <button type="submit" id="registerSubmit" class="btn" disabled>가입하기</button>
         </form>
 
         <p id="authMessage" class="message" role="status" aria-live="polite"></p>

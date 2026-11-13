@@ -93,8 +93,29 @@ const STATEMENTS = [
   )`,
 ];
 
+// 이미 있는 users 표에 가입 정보 칸을 더한다 (이미 있으면 건너뜀). 기존 회원은 이메일이 비어 있어도 그대로 로그인된다.
+async function addColumnIfMissing(table, column, ddl) {
+  const [r] = await pool.query(
+    'SELECT COUNT(*) AS c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+    [table, column]
+  );
+  if (!r[0].c) await pool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+}
+async function addUniqueIfMissing(table, index, column) {
+  const [r] = await pool.query(
+    'SELECT COUNT(*) AS c FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?',
+    [table, index]
+  );
+  if (!r[0].c) await pool.query(`ALTER TABLE ${table} ADD UNIQUE KEY ${index} (${column})`);
+}
+
 const ready = (async () => {
   for (const sql of STATEMENTS) await pool.query(sql);
+  await addColumnIfMissing('users', 'email', 'VARCHAR(254) NULL');
+  await addColumnIfMissing('users', 'email_verified', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addColumnIfMissing('users', 'terms_agreed_at', 'TIMESTAMP NULL');
+  await addColumnIfMissing('users', 'terms_version', 'VARCHAR(20) NULL');
+  await addUniqueIfMissing('users', 'uq_users_email', 'email');
 })().catch((err) => {
   console.error('[추천/비추천] 테이블 생성 실패:', err.message);
 });

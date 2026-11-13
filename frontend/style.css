@@ -813,3 +813,35 @@ body.dm-open{overflow:hidden}
 .dm-head{padding-right:60px}
 .dm-stage{max-height:70vh}
 .dm-note-tight{padding-top:4px}
+
+/* 회원가입: 이메일 인증, 비밀번호 확인, 약관 동의 */
+.inline-row{display:flex;gap:8px}
+.inline-row .input{flex:1;min-width:0}
+.inline-row .btn{flex:0 0 auto;white-space:nowrap;margin-top:0}
+.hint{min-height:18px;margin:2px 0 0;font-size:13px;color:var(--muted)}
+.hint.is-ok{color:var(--tier-top)}
+.hint.is-err{color:var(--tier-low)}
+.consent{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:2px 0 0;display:grid;gap:8px}
+.consent-all{font-weight:700;padding-bottom:8px;border-bottom:1px solid var(--line);cursor:pointer}
+.consent-item{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+.consent-item span{flex:1}
+.consent a{color:var(--accent);font-size:13px;white-space:nowrap}
+.consent input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);flex:0 0 auto}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.input[readonly]{opacity:.75}
+.btn:disabled{cursor:not-allowed}
+
+/* 이용약관 / 개인정보 안내 페이지 */
+.doc{max-width:760px;margin:0 auto;padding:28px 18px 64px;line-height:1.7}
+.doc .brand{display:inline-flex;margin-bottom:12px;text-decoration:none}
+.doc h1{margin:8px 0 4px;font-size:1.6rem}
+.doc-meta{margin:0 0 24px;color:var(--muted);font-size:14px}
+.doc h2{margin:32px 0 8px;padding-top:8px;font-size:1.2rem;border-top:1px solid var(--line)}
+.doc h3{margin:18px 0 4px;font-size:1rem}
+.doc p,.doc li{font-size:14.5px}
+.doc ul{padding-left:20px;margin:4px 0}
+.doc-table{width:100%;border-collapse:collapse;margin:8px 0;font-size:14px}
+.doc-table th,.doc-table td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+.doc-table th{background:var(--raised)}
+.doc-back{margin-top:32px}
+.doc-back a{color:var(--accent)}

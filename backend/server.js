@@ -11,6 +11,8 @@ const historyRoutes = require('./routes/history');
 const friendRoutes = require('./routes/friends');
 
 const app = express();
+// Railway 같은 프록시 뒤에서 실제 접속자 IP를 읽기 위해 (인증 메일 요청 횟수 제한에 사용)
+app.set('trust proxy', 1);
 
 // 개발 환경에서는 localhost/127.0.0.1을 혼용해서 열어도 막히지 않도록
 // .env에 지정된 주소 + localhost/127.0.0.1 계열을 함께 허용합니다.
